@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Text;
 using Simulador.Controladores;
 using Simulador.Dispositivos;
+using Simulador.EntradaReal;
 using Simulador.Modelo;
 using Simulador.Nucleo;
 
@@ -83,6 +85,8 @@ public static class Programa
             Console.WriteLine("  [7] Inyectar Falla en un Dispositivo (E01, E04, E07)");
             Console.WriteLine("  [8] Reiniciar Dispositivo (Reiniciar() / Recargar Papel)");
             Console.WriteLine("  [9] Ver Bitácora, Eventos y Estadísticas");
+            Console.WriteLine("  [M] Solicitar E/S al Mouse (Lectura / ConsultarEstado)");
+            Console.WriteLine("  [E] Modo Entrada Real (teclado y mouse físicos, captura global)");
             Console.WriteLine("  [R] Reiniciar Simulador desde Tick 0");
             Console.WriteLine("  [0] Volver al menú principal");
             Console.Write("Opción: ");
@@ -165,8 +169,8 @@ public static class Programa
                     break;
 
                 case "8":
-                    Console.Write("Dispositivo a reiniciar ([0] Teclado, [1] Disco, [2] Impresora): ");
-                    if (int.TryParse(Console.ReadLine(), out int idx) && idx >= 0 && idx <= 2)
+                    Console.Write("Dispositivo a reiniciar ([0] Teclado, [1] Disco, [2] Impresora, [3] Mouse): ");
+                    if (int.TryParse(Console.ReadLine(), out int idx) && idx >= 0 && idx <= 3)
                     {
                         gestor.ObtenerControlador((TipoDispositivo)idx).Reiniciar();
                         Consola.MostrarEventosRecientes(gestor.Bitacora, 5);
@@ -180,6 +184,18 @@ public static class Programa
                     Pausa();
                     break;
 
+                case "M":
+                    Console.Write("Operación ([1] Lectura, [2] Escritura (provoca E05), [3] ConsultarEstado): ");
+                    var opMou = LeerOperacion(Console.ReadLine());
+                    gestor.SolicitarES(TipoDispositivo.Mouse, opMou, procesoId: 1);
+                    gestor.Despachar();
+                    Consola.MostrarEventosRecientes(gestor.Bitacora, 5);
+                    break;
+
+                case "E":
+                    ModoEntradaReal(gestor);
+                    break;
+
                 case "R":
                     gestor = new GestorES();
                     Console.WriteLine("Simulador reiniciado.");
@@ -188,6 +204,85 @@ public static class Programa
                 case "0":
                     return;
             }
+        }
+    }
+
+    /// <summary>
+    /// Captura el teclado y mouse físicos (hooks globales) y los entrega a los controladores,
+    /// avanzando el reloj lógico en tiempo real. Se sale con ESC.
+    /// </summary>
+    private static void ModoEntradaReal(GestorES gestor)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Console.WriteLine("El modo de entrada real requiere Windows (hooks globales de bajo nivel).");
+            return;
+        }
+
+        Console.Write("Intervalo del reloj lógico en ms (Enter = 250): ");
+        int intervalo = int.TryParse(Console.ReadLine(), out int ms) && ms >= 20 ? ms : 250;
+        Console.Write("¿Crear una solicitud de Lectura automática por cada evento? [S/n]: ");
+        bool autoLectura = !string.Equals(Console.ReadLine()?.Trim(), "n", StringComparison.OrdinalIgnoreCase);
+
+        using var captura = new CapturaEntradaGlobal();
+        try
+        {
+            captura.Iniciar();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"No se pudo iniciar la captura: {ex.Message}");
+            return;
+        }
+
+        Consola.MostrarEncabezado("MODO ENTRADA REAL - Teclado y mouse físicos (captura global). Presione ESC para salir");
+        int mostrados = gestor.Bitacora.Eventos.Count;
+        gestor.Bitacora.RegistrarEvento($"[ENTRADA REAL] Captura global iniciada (reloj cada {intervalo} ms, lectura automática: {(autoLectura ? "sí" : "no")}).");
+
+        var cronometro = Stopwatch.StartNew();
+        bool salir = false;
+        while (!salir)
+        {
+            // Drenar los eventos físicos capturados por el hilo de los hooks
+            while (!salir && captura.TryLeer(out var evento))
+            {
+                switch (evento)
+                {
+                    case EventoEntrada.Escape:
+                        salir = true;
+                        break;
+                    case EventoEntrada.Tecla t:
+                        if (gestor.ControladorTeclado.RecibirPulsacionUsuario(t.Caracter) && autoLectura)
+                            gestor.SolicitarES(TipoDispositivo.Teclado, TipoOperacion.Lectura, procesoId: 1);
+                        break;
+                    case EventoEntrada.Mouse m:
+                        if (gestor.ControladorMouse.RecibirEventoUsuario(m.Evento) && autoLectura)
+                            gestor.SolicitarES(TipoDispositivo.Mouse, TipoOperacion.Lectura, procesoId: 1);
+                        break;
+                    case EventoEntrada.Movimiento mv:
+                        gestor.ControladorMouse.ActualizarPosicion(mv.X, mv.Y);
+                        break;
+                }
+            }
+
+            if (cronometro.ElapsedMilliseconds >= intervalo)
+            {
+                gestor.Tick();
+                cronometro.Restart();
+            }
+
+            mostrados = Consola.MostrarEventosDesde(gestor.Bitacora, mostrados);
+            Thread.Sleep(10);
+        }
+
+        captura.Detener();
+        gestor.Bitacora.RegistrarEvento("[ENTRADA REAL] Captura global detenida.");
+        Consola.MostrarEventosDesde(gestor.Bitacora, mostrados);
+
+        // Las teclas escritas con la consola enfocada también llegaron a su entrada estándar: se descartan
+        if (!Console.IsInputRedirected)
+        {
+            while (Console.KeyAvailable) Console.ReadKey(intercept: true);
         }
     }
 
@@ -201,8 +296,8 @@ public static class Programa
 
     private static void InyectarFallaInteractiva(GestorES gestor)
     {
-        Console.Write("Dispositivo ([0] Teclado, [1] Disco, [2] Impresora): ");
-        if (!int.TryParse(Console.ReadLine(), out int dIdx) || dIdx < 0 || dIdx > 2) return;
+        Console.Write("Dispositivo ([0] Teclado, [1] Disco, [2] Impresora, [3] Mouse): ");
+        if (!int.TryParse(Console.ReadLine(), out int dIdx) || dIdx < 0 || dIdx > 3) return;
         var disp = gestor.ObtenerControlador((TipoDispositivo)dIdx).Dispositivo;
 
         Console.WriteLine("Tipo de falla:");

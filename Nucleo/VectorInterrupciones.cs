@@ -2,11 +2,11 @@ namespace Simulador.Nucleo;
 
 public sealed class VectorInterrupciones
 {
-    // Vector de interrupciones: 0 = Teclado, 1 = Disco, 2 = Impresora
-    public const int IrqTeclado = 0, IrqDisco = 1, IrqImpresora = 2;
+    // Vector de interrupciones: 0 = Teclado, 1 = Disco, 2 = Impresora, 3 = Mouse
+    public const int IrqTeclado = 0, IrqDisco = 1, IrqImpresora = 2, IrqMouse = 3;
 
-    private readonly bool[] _pendientes = new bool[3];
-    private readonly Action?[] _tablaIsr = new Action?[3];
+    private readonly bool[] _pendientes = new bool[4];
+    private readonly Action?[] _tablaIsr = new Action?[4];
 
     public void Registrar(int irq, Action isr) => _tablaIsr[irq] = isr;
 

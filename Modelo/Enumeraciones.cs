@@ -31,7 +31,8 @@ public enum TipoDispositivo
 {
     Teclado = 0,
     Disco = 1,
-    Impresora = 2
+    Impresora = 2,
+    Mouse = 3
 }
 
 // Códigos de error del simulador
@@ -44,5 +45,6 @@ public enum CodigoError
     E04_ReintentosAgotados = 4,
     E05_OperacionNoSoportada = 5,
     E06_BufferTecladoLleno = 6,
-    E07_SinPapel = 7
+    E07_SinPapel = 7,
+    E08_BufferMouseLleno = 8
 }

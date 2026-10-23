@@ -58,6 +58,7 @@ public static class Consola
                 TipoDispositivo.Teclado => $"Buffer: {((TecladoVirtual)d).PulsacionesEnBuffer}/16",
                 TipoDispositivo.Disco => "1024 bloques",
                 TipoDispositivo.Impresora => $"Papel: {((ImpresoraVirtual)d).Hojas} hojas",
+                TipoDispositivo.Mouse => $"Pos: ({((MouseVirtual)d).PosicionX},{((MouseVirtual)d).PosicionY}) Buffer: {((MouseVirtual)d).EventosEnBuffer}/16",
                 _ => ""
             };
 
@@ -105,19 +106,35 @@ public static class Consola
         }
 
         foreach (var ev in lista)
-        {
-            if (ev.Contains("[ERROR]") || ev.Contains("[WARNING]") || ev.Contains("[BEEP"))
-                Console.ForegroundColor = ConsoleColor.Red;
-            else if (ev.Contains("[INTERRUPCIÓN]"))
-                Console.ForegroundColor = ConsoleColor.Yellow;
-            else if (ev.Contains("[SO]") && ev.Contains("finalizada"))
-                Console.ForegroundColor = ConsoleColor.Green;
-            else
-                Console.ResetColor();
+            EscribirEvento(ev);
+    }
 
-            Console.WriteLine("  " + ev);
+    /// <summary>
+    /// Imprime solo los eventos registrados a partir del índice indicado (traza en vivo).
+    /// Devuelve el nuevo índice para la siguiente llamada.
+    /// </summary>
+    public static int MostrarEventosDesde(Bitacora bitacora, int desde)
+    {
+        for (int i = desde; i < bitacora.Eventos.Count; i++)
+            EscribirEvento(bitacora.Eventos[i]);
+        return bitacora.Eventos.Count;
+    }
+
+    private static void EscribirEvento(string ev)
+    {
+        if (ev.Contains("[ERROR]") || ev.Contains("[WARNING]") || ev.Contains("[BEEP"))
+            Console.ForegroundColor = ConsoleColor.Red;
+        else if (ev.Contains("[INTERRUPCIÓN]"))
+            Console.ForegroundColor = ConsoleColor.Yellow;
+        else if (ev.Contains("[MOUSE]") || ev.Contains("[ENTRADA REAL]"))
+            Console.ForegroundColor = ConsoleColor.Blue;
+        else if (ev.Contains("[SO]") && ev.Contains("finalizada"))
+            Console.ForegroundColor = ConsoleColor.Green;
+        else
             Console.ResetColor();
-        }
+
+        Console.WriteLine("  " + ev);
+        Console.ResetColor();
     }
 
     public static void MostrarEstadisticas(GestorES gestor)

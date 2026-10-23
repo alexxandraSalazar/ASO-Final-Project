@@ -8,14 +8,16 @@ public sealed class Estadisticas
     {
         [TipoDispositivo.Teclado] = 0,
         [TipoDispositivo.Disco] = 0,
-        [TipoDispositivo.Impresora] = 0
+        [TipoDispositivo.Impresora] = 0,
+        [TipoDispositivo.Mouse] = 0
     };
 
     private readonly Dictionary<TipoDispositivo, int> _operacionesPorDispositivo = new()
     {
         [TipoDispositivo.Teclado] = 0,
         [TipoDispositivo.Disco] = 0,
-        [TipoDispositivo.Impresora] = 0
+        [TipoDispositivo.Impresora] = 0,
+        [TipoDispositivo.Mouse] = 0
     };
 
     private int _sumaTiemposAtencion;

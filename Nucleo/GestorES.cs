@@ -20,10 +20,12 @@ public sealed class GestorES
     public TecladoVirtual Teclado { get; } = new();
     public DiscoVirtual Disco { get; } = new();
     public ImpresoraVirtual Impresora { get; } = new();
+    public MouseVirtual Mouse { get; } = new();
 
     public ControladorTeclado ControladorTeclado { get; }
     public ControladorDisco ControladorDisco { get; }
     public ControladorImpresora ControladorImpresora { get; }
+    public ControladorMouse ControladorMouse { get; }
     public IReadOnlyList<ControladorDispositivo> Controladores { get; }
 
     public GestorES()
@@ -33,12 +35,14 @@ public sealed class GestorES
         ControladorTeclado = new ControladorTeclado(Teclado, Reloj, Vector, Bitacora, Estadisticas);
         ControladorDisco = new ControladorDisco(Disco, Reloj, Vector, Bitacora, Estadisticas);
         ControladorImpresora = new ControladorImpresora(Impresora, Reloj, Vector, Bitacora, Estadisticas);
+        ControladorMouse = new ControladorMouse(Mouse, Reloj, Vector, Bitacora, Estadisticas);
 
         Controladores = new ControladorDispositivo[]
         {
             ControladorTeclado,
             ControladorDisco,
-            ControladorImpresora
+            ControladorImpresora,
+            ControladorMouse
         };
 
         // Registrar las ISR en el vector de interrupciones
